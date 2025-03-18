@@ -35,7 +35,7 @@ const typeDefs = gql`
         logout: Boolean! @auth
         superAdminRegister(input: RegisterInput!): AuthResponse!
         adminRegister(input: RegisterInput!): AuthResponse! @auth(requires: SUPER_ADMIN)
-        adminLogin(email: String!, password: String!): AuthResponse!
+        userRegister(input: RegisterInput!): AuthResponse!
     }
 
     input RegisterInput {

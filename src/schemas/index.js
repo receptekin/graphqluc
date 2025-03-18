@@ -80,6 +80,9 @@ const mutations = gql`
         login(email: String!, password: String!): AuthPayload!
         refreshToken(refreshToken: String!): RefreshTokenPayload!
         logout: Boolean! @auth
+
+        # User Register Mutation'ı
+        userRegister(input: RegisterInput!): AuthPayload!
     }
 `;
 

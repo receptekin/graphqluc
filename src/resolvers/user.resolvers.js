@@ -65,6 +65,23 @@ export const resolvers = {
             };
         },
 
+        userRegister: async (_, { input }) => {
+            // Normal kullanıcı kaydı için role USER olarak sabit
+            input.role = 'USER';
+            
+            const validatedData = validateUser(input);
+            const user = await userService.register(validatedData);
+            
+            // Token'ları oluştur
+            const { accessToken, refreshToken } = await authService.generateTokens(user);
+
+            return {
+                user,
+                accessToken,
+                refreshToken
+            };
+        },
+
         updateUser: async (_, { id, input }, context) => {
             if (context.user.role === 'ADMIN') {
                 const targetUser = await userService.findById(id);
