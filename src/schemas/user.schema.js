@@ -9,10 +9,22 @@ const typeDefs = gql`
 
     type User {
         id: ID!
-        name: String!
-        surname: String!
+        firstName: String!
+        lastName: String!
+        email: String!
         role: UserRole!
+        isActive: Boolean!
         createdAt: String!
+        updatedAt: String!
+    }
+
+    input UpdateUserInput {
+        firstName: String
+        lastName: String
+        email: String
+        password: String
+        role: UserRole
+        isActive: Boolean
     }
 
     type DeleteResponse {
@@ -26,10 +38,10 @@ const typeDefs = gql`
     }
 
     type Mutation {
-        updateUser(id: ID!, name: String, surname: String): User! @auth(requires: [SUPER_ADMIN, ADMIN])
-        deleteUser(id: ID!): DeleteResponse! @auth(requires: [SUPER_ADMIN, ADMIN])
+        updateUser(id: ID!, input: UpdateUserInput!): User! @auth(requires: [SUPER_ADMIN, ADMIN])
+        deleteUser(id: ID!): Boolean! @auth(requires: [SUPER_ADMIN, ADMIN])
         updateUserRole(id: ID!, role: UserRole!): User! @auth(requires: SUPER_ADMIN)
-        createAdmin(name: String!, surname: String!, password: String!): User! @auth(requires: SUPER_ADMIN)
+        createAdmin(name: String!, surname: String!, email: String!, password: String!): User! @auth(requires: SUPER_ADMIN)
     }
 `;
 

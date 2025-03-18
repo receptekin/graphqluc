@@ -9,10 +9,13 @@ const typeDefs = gql`
 
     type User {
         id: ID!
-        name: String!
-        surname: String!
+        firstName: String!
+        lastName: String!
+        email: String!
         role: UserRole!
+        isActive: Boolean!
         createdAt: String!
+        updatedAt: String!
     }
 
     enum UserRole {
@@ -26,13 +29,21 @@ const typeDefs = gql`
     }
 
     type Mutation {
-        register(name: String!, surname: String!, password: String!): AuthResponse!
-        login(name: String!, password: String!): AuthResponse!
+        register(input: RegisterInput!): AuthResponse! @auth(requires: [SUPER_ADMIN, ADMIN])
+        login(email: String!, password: String!): AuthResponse!
         refreshToken(refreshToken: String!): AuthResponse!
-        logout(refreshToken: String!): Boolean!
-        superAdminRegister(name: String!, surname: String!, password: String!): AuthResponse!
-        adminRegister(name: String!, surname: String!, password: String!): AuthResponse! @auth(requires: SUPER_ADMIN)
-        adminLogin(name: String!, password: String!): AuthResponse!
+        logout: Boolean! @auth
+        superAdminRegister(input: RegisterInput!): AuthResponse!
+        adminRegister(input: RegisterInput!): AuthResponse! @auth(requires: SUPER_ADMIN)
+        adminLogin(email: String!, password: String!): AuthResponse!
+    }
+
+    input RegisterInput {
+        firstName: String!
+        lastName: String!
+        email: String!
+        password: String!
+        role: UserRole
     }
 `;
 

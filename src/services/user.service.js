@@ -1,33 +1,27 @@
-import { User } from '../models/User.js';
+import { User } from '../models/user.js';
 import bcrypt from 'bcryptjs';
 import { AUTH_CONFIG } from '../utils/constants.js';
 import { createError, ErrorTypes } from '../utils/errorHandler.js';
+import { validateUser } from '../utils/validators.js';
+import { hashPassword } from '../utils/password.js';
+import { generateToken } from '../utils/jwt.js';
 
-class UserService {
-    async findByNameAndSurname(name, surname = null) {
+export const userService = {
+    // Tüm kullanıcıları getir
+    async getAllUsers(currentUser) {
         try {
-            const query = { name, role: 'USER' };
-            if (surname) {
-                query.surname = surname;
+            // SUPER_ADMIN tüm kullanıcıları görebilir
+            if (currentUser.role === 'SUPER_ADMIN') {
+                return await User.find();
             }
-            const user = await User.findOne(query);
-            console.log('UserService.findByNameAndSurname result:', user ? {
-                id: user._id,
-                name: user.name,
-                surname: user.surname,
-                role: user.role,
-                hasPassword: !!user.password
-            } : 'Not found');
-            return user;
+            // ADMIN sadece USER rolündeki kullanıcıları görebilir
+            return await User.find({ role: 'USER' });
         } catch (error) {
-            throw createError(
-                `Kullanıcı arama hatası: ${error.message}`,
-                ErrorTypes.DATABASE,
-                500
-            );
+            throw createError('Kullanıcılar getirilirken bir hata oluştu!', ErrorTypes.DATABASE, 500);
         }
-    }
+    },
 
+    // ID'ye göre kullanıcı getir
     async findById(id) {
         try {
             const user = await User.findById(id);
@@ -36,47 +30,114 @@ class UserService {
             }
             return user;
         } catch (error) {
-            if (error.type === ErrorTypes.NOT_FOUND) throw error;
+            if (error.name === 'CastError') {
+                throw createError('Geçersiz kullanıcı ID!', ErrorTypes.VALIDATION, 400);
+            }
+            throw error;
+        }
+    },
+
+    // Kullanıcı kaydı
+    async register(input) {
+        try {
+            const user = await User.create(input);
+            return user;
+        } catch (error) {
+            if (error.code === 11000) {
+                throw createError('Bu email adresi ile kayıtlı bir kullanıcı var!', ErrorTypes.VALIDATION, 400);
+            }
+            throw error;
+        }
+    },
+
+    // Kullanıcı güncelleme
+    async update(id, input) {
+        try {
+            // Şifre güncelleniyorsa hashle
+            if (input.password) {
+                input.password = await hashPassword(input.password);
+            }
+
+            const user = await User.findByIdAndUpdate(
+                id,
+                { $set: input },
+                { new: true, runValidators: true }
+            );
+
+            if (!user) {
+                throw createError('Kullanıcı bulunamadı!', ErrorTypes.NOT_FOUND, 404);
+            }
+
+            return user;
+        } catch (error) {
+            if (error.code === 11000) {
+                throw createError('Bu email adresi ile kayıtlı bir kullanıcı var!', ErrorTypes.VALIDATION, 400);
+            }
+            throw error;
+        }
+    },
+
+    // Kullanıcı silme
+    async delete(id) {
+        const user = await User.findByIdAndDelete(id);
+        if (!user) {
+            throw createError('Kullanıcı bulunamadı!', ErrorTypes.NOT_FOUND, 404);
+        }
+        return true;
+    },
+
+    // Kullanıcı rolü güncelleme
+    async updateUserRole(userId, role) {
+        try {
+            const user = await this.findById(userId);
+            user.role = role;
+            await user.save();
+            return user;
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    // Super Admin oluşturma
+    async createSuperAdmin(userData) {
+        try {
+            userData.role = 'SUPER_ADMIN';
+            return await this.register(userData);
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    // Admin oluşturma
+    async createAdmin(userData) {
+        try {
+            userData.role = 'ADMIN';
+            return await this.register(userData);
+        } catch (error) {
+            throw error;
+        }
+    },
+
+    async findByFirstNameAndLastName(firstName, lastName = null) {
+        try {
+            const query = { firstName };
+            if (lastName) {
+                query.lastName = lastName;
+            }
+            const user = await User.findOne(query);
+            return user;
+        } catch (error) {
             throw createError(
                 `Kullanıcı arama hatası: ${error.message}`,
                 ErrorTypes.DATABASE,
                 500
             );
         }
-    }
+    },
 
-    async create(name, surname, password) {
-        try {
-            console.log('Creating User:', {
-                name,
-                surname,
-                role: 'USER'
-            });
-
-            const user = new User({
-                name,
-                surname,
-                password,
-                role: 'USER'
-            });
-
-            const savedUser = await user.save();
-            console.log('Created User:', {
-                id: savedUser._id,
-                name: savedUser.name,
-                role: savedUser.role,
-                hasPassword: !!savedUser.password
-            });
-            return savedUser;
-        } catch (error) {
-            console.error('Create User Error:', error);
-            throw createError(
-                `Kullanıcı oluşturma hatası: ${error.message}`,
-                ErrorTypes.DATABASE,
-                500
-            );
-        }
-    }
+    async findByEmail(email) {
+        return await User.findOne({ email }).select('+password');
+    },
 
     async verifyPassword(user, plainPassword) {
         try {
@@ -103,7 +164,7 @@ class UserService {
             if (error.type === ErrorTypes.AUTHENTICATION) throw error;
             throw createError('Şifre doğrulama hatası!', ErrorTypes.AUTHENTICATION, 401);
         }
-    }
+    },
 
     async updatePassword(userId, newPassword) {
         try {
@@ -120,100 +181,27 @@ class UserService {
                 500
             );
         }
-    }
+    },
 
-    async update(id, updateData) {
+    async getCurrentUser() {
         try {
-            return await User.findByIdAndUpdate(id, updateData, { new: true });
-        } catch (error) {
-            throw createError(
-                `Kullanıcı güncelleme hatası: ${error.message}`,
-                ErrorTypes.DATABASE,
-                500
-            );
-        }
-    }
-
-    async delete(id) {
-        try {
-            const user = await User.findByIdAndDelete(id);
-            if (!user) {
-                throw createError(
-                    'Silinecek kullanıcı bulunamadı!',
-                    ErrorTypes.NOT_FOUND,
-                    404
-                );
+            // Context'ten kullanıcı bilgisini al
+            const context = global.context;
+            if (!context || !context.user) {
+                return null;
             }
-            return user;
+            return context.user;
         } catch (error) {
-            if (error.type === ErrorTypes.NOT_FOUND) throw error;
-            throw createError(
-                `Kullanıcı silme hatası: ${error.message}`,
-                ErrorTypes.DATABASE,
-                500
-            );
+            console.error('Get Current User Error:', error);
+            return null;
         }
-    }
+    },
 
-    async createAdmin(name, surname, password) {
-        try {
-            console.log('Creating Admin:', {
-                name,
-                surname,
-                role: 'ADMIN'
-            });
-
-            const user = new User({
-                name,
-                surname,
-                password,
-                role: 'ADMIN'
-            });
-
-            const savedUser = await user.save();
-            console.log('Created Admin:', {
-                id: savedUser._id,
-                name: savedUser.name,
-                role: savedUser.role,
-                hasPassword: !!savedUser.password
-            });
-            return savedUser;
-        } catch (error) {
-            console.error('Create Admin Error:', error);
-            throw createError('Admin kullanıcı oluşturulamadı!', ErrorTypes.DATABASE, 500);
-        }
-    }
+    async findByRole(role) {
+        return await User.find({ role });
+    },
 
     async findAll() {
-        try {
-            return await User.find().select('-password');
-        } catch (error) {
-            throw createError('Kullanıcılar alınamadı!', ErrorTypes.DATABASE, 500);
-        }
+        return await User.find().sort({ createdAt: -1 });
     }
-
-    async updateUserRole(userId, role) {
-        try {
-            const user = await User.findByIdAndUpdate(
-                userId,
-                { role },
-                { new: true }
-            );
-            
-            if (!user) {
-                throw createError('Kullanıcı bulunamadı!', ErrorTypes.NOT_FOUND, 404);
-            }
-            
-            return user;
-        } catch (error) {
-            console.error('Update User Role Error:', error);
-            throw createError(
-                `Kullanıcı rolü güncellenemedi: ${error.message}`,
-                ErrorTypes.DATABASE,
-                500
-            );
-        }
-    }
-}
-
-export const userService = new UserService(); 
+}; 

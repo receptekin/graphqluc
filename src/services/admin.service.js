@@ -4,20 +4,9 @@ import { AUTH_CONFIG } from '../utils/constants.js';
 import { createError, ErrorTypes } from '../utils/errorHandler.js';
 
 class AdminService {
-    async findByNameAndSurname(name, surname = null) {
+    async findByEmail(email) {
         try {
-            const query = { name, role: 'ADMIN' };
-            if (surname) {
-                query.surname = surname;
-            }
-            const user = await User.findOne(query);
-            console.log('AdminService.findByNameAndSurname result:', user ? {
-                id: user._id,
-                name: user.name,
-                role: user.role,
-                hasPassword: !!user.password
-            } : 'Not found');
-            return user;
+            return await User.findOne({ email: email.toLowerCase(), role: 'ADMIN' });
         } catch (error) {
             throw createError(
                 `Admin arama hatası: ${error.message}`,
@@ -27,17 +16,33 @@ class AdminService {
         }
     }
 
-    async create(name, surname, password) {
+    async create(name, surname, email, password) {
         try {
             console.log('Creating Admin:', {
                 name,
                 surname,
+                email,
                 role: 'ADMIN'
             });
+
+            const existingUser = await User.findOne({ 
+                $or: [
+                    { email: email.toLowerCase() }
+                ]
+            });
+
+            if (existingUser) {
+                throw createError(
+                    `Bu email adresi (${email.toLowerCase()}) ile kayıtlı bir ${existingUser.role.toLowerCase()} kullanıcısı bulunmaktadır!`,
+                    ErrorTypes.VALIDATION,
+                    400
+                );
+            }
 
             const user = new User({
                 name,
                 surname,
+                email: email.toLowerCase(),
                 password,
                 role: 'ADMIN'
             });
@@ -46,12 +51,20 @@ class AdminService {
             console.log('Created Admin:', {
                 id: savedUser._id,
                 name: savedUser.name,
+                email: savedUser.email,
                 role: savedUser.role,
                 hasPassword: !!savedUser.password
             });
             return savedUser;
         } catch (error) {
             console.error('Create Admin Error:', error);
+            if (error.code === 11000) {
+                throw createError(
+                    `Bu email adresi (${email.toLowerCase()}) ile kayıtlı bir kullanıcı bulunmaktadır!`,
+                    ErrorTypes.VALIDATION,
+                    400
+                );
+            }
             throw createError(
                 `Admin oluşturma hatası: ${error.message}`,
                 ErrorTypes.DATABASE,

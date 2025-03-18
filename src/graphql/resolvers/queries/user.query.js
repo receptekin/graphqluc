@@ -1,16 +1,16 @@
-import { User } from '../../../models/User.js';
+import { userService } from '../../../services/user.service.js';
 
 export const userQueries = {
-    users: async () => {
+    users: async (_, __, context) => {
         try {
-            return await User.find();
+            return await userService.getAllUsers(context);
         } catch (error) {
             throw new Error('Error fetching users');
         }
     },
     user: async (_, { id }) => {
         try {
-            return await User.findById(id);
+            return await userService.findById(id);
         } catch (error) {
             throw new Error('Error fetching user');
         }

@@ -5,31 +5,38 @@ export const ErrorTypes = {
     VALIDATION: 'VALIDATION_ERROR',
     NOT_FOUND: 'NOT_FOUND_ERROR',
     DATABASE: 'DATABASE_ERROR',
-    INTERNAL: 'INTERNAL_SERVER_ERROR'
+    NETWORK: 'NETWORK_ERROR',
+    UNKNOWN: 'UNKNOWN_ERROR'
 };
 
-class CustomError extends Error {
-    constructor(message, type, code = 500) {
+export class AppError extends Error {
+    constructor(message, type, statusCode) {
         super(message);
+        this.name = 'AppError';
         this.type = type;
-        this.code = code;
+        this.statusCode = statusCode;
+        Error.captureStackTrace(this, this.constructor);
     }
 }
 
-export const createError = (message, type = ErrorTypes.INTERNAL, code = 500) => {
-    return new CustomError(message, type, code);
+export const createError = (message, type, statusCode) => {
+    return new AppError(message, type, statusCode);
 };
 
 export const handleError = (error) => {
-    console.error('Error:', {
-        message: error.message,
-        type: error.type || 'UNKNOWN_ERROR',
-        stack: error.stack
-    });
+    if (error instanceof AppError) {
+        return {
+            message: error.message,
+            type: error.type,
+            statusCode: error.statusCode
+        };
+    }
+
+    console.error('Unexpected Error:', error);
 
     return {
-        message: error.message,
-        type: error.type || ErrorTypes.INTERNAL,
-        code: error.code || 500
+        message: 'Beklenmeyen bir hata oluştu!',
+        type: ErrorTypes.UNKNOWN,
+        statusCode: 500
     };
 }; 

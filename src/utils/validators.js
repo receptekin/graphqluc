@@ -1,9 +1,9 @@
 import { createError, ErrorTypes } from './errorHandler.js';
 
 export const validateUser = (userData) => {
-    const { name, surname, password } = userData;
+    const { firstName, lastName, email, password } = userData;
 
-    if (!name || name.trim().length < 2) {
+    if (!firstName || firstName.trim().length < 2) {
         throw createError(
             'İsim en az 2 karakter olmalıdır!',
             ErrorTypes.VALIDATION,
@@ -11,7 +11,7 @@ export const validateUser = (userData) => {
         );
     }
 
-    if (!surname || surname.trim().length < 2) {
+    if (!lastName || lastName.trim().length < 2) {
         throw createError(
             'Soyisim en az 2 karakter olmalıdır!',
             ErrorTypes.VALIDATION,
@@ -19,18 +19,22 @@ export const validateUser = (userData) => {
         );
     }
 
-    if (!password || password.length < 6) {
+    if (!email || !email.match(/^[^\s@]+@[^\s@]+\.[^\s@]+$/)) {
         throw createError(
-            'Şifre en az 6 karakter olmalıdır!',
+            'Geçerli bir email adresi giriniz!',
             ErrorTypes.VALIDATION,
             400
         );
     }
 
+    // Şifre validasyonunu validatePassword fonksiyonu ile yap
+    const validatedPassword = validatePassword(password);
+
     return {
-        name: name.trim(),
-        surname: surname.trim(),
-        password
+        firstName: firstName.trim(),
+        lastName: lastName.trim(),
+        email: email.trim().toLowerCase(),
+        password: validatedPassword
     };
 };
 

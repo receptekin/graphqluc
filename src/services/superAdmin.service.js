@@ -4,20 +4,9 @@ import { AUTH_CONFIG } from '../utils/constants.js';
 import { createError, ErrorTypes } from '../utils/errorHandler.js';
 
 class SuperAdminService {
-    async findByNameAndSurname(name, surname = null) {
+    async findByEmail(email) {
         try {
-            const query = { name, role: 'SUPER_ADMIN' };
-            if (surname) {
-                query.surname = surname;
-            }
-            const user = await User.findOne(query);
-            console.log('SuperAdminService.findByNameAndSurname result:', user ? {
-                id: user._id,
-                name: user.name,
-                role: user.role,
-                hasPassword: !!user.password
-            } : 'Not found');
-            return user;
+            return await User.findOne({ email: email.toLowerCase(), role: 'SUPER_ADMIN' });
         } catch (error) {
             throw createError(
                 `Süper admin arama hatası: ${error.message}`,
@@ -27,30 +16,74 @@ class SuperAdminService {
         }
     }
 
-    async create(name, surname, password) {
+    async create(firstName, lastName, email, password) {
         try {
-            console.log('Creating Super Admin with password:', {
-                name,
-                surname,
+            console.log('Creating Super Admin:', {
+                firstName,
+                lastName,
+                email,
                 role: 'SUPER_ADMIN'
             });
 
+            // Önce mevcut süper admin var mı kontrol et
+            const existingSuperAdmin = await User.findOne({ role: 'SUPER_ADMIN' });
+            if (existingSuperAdmin) {
+                throw createError(
+                    `Sistemde zaten bir süper admin bulunmaktadır! (${existingSuperAdmin.email})`,
+                    ErrorTypes.VALIDATION,
+                    400
+                );
+            }
+
+            // Email ile kullanıcı var mı kontrol et
+            const existingUser = await User.findOne({ 
+                $or: [
+                    { email: email.toLowerCase() }
+                ]
+            });
+
+            if (existingUser) {
+                throw createError(
+                    `Bu email adresi (${email.toLowerCase()}) ile kayıtlı bir ${existingUser.role.toLowerCase()} kullanıcısı bulunmaktadır!`,
+                    ErrorTypes.VALIDATION,
+                    400
+                );
+            }
+
             const user = new User({
-                name,
-                surname,
+                firstName,
+                lastName,
+                email: email.toLowerCase(),
                 password,
                 role: 'SUPER_ADMIN'
             });
+
             const savedUser = await user.save();
             console.log('Created Super Admin:', {
                 id: savedUser._id,
-                name: savedUser.name,
+                firstName: savedUser.firstName,
+                lastName: savedUser.lastName,
+                email: savedUser.email,
                 role: savedUser.role,
                 hasPassword: !!savedUser.password
             });
             return savedUser;
         } catch (error) {
             console.error('Create Super Admin Error:', error);
+            if (error.code === 11000) {
+                if (error.keyPattern.role) {
+                    throw createError(
+                        `Sistemde zaten bir süper admin bulunmaktadır! (${email.toLowerCase()})`,
+                        ErrorTypes.VALIDATION,
+                        400
+                    );
+                }
+                throw createError(
+                    `Bu email adresi (${email.toLowerCase()}) ile kayıtlı bir kullanıcı bulunmaktadır!`,
+                    ErrorTypes.VALIDATION,
+                    400
+                );
+            }
             throw createError(
                 `Süper admin oluşturma hatası: ${error.message}`,
                 ErrorTypes.DATABASE,

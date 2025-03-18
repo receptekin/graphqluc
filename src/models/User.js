@@ -1,30 +1,42 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcryptjs';
+import { createError, ErrorTypes } from '../utils/errorHandler.js';
 
 const userSchema = new mongoose.Schema({
-    name: {
+    firstName: {
         type: String,
-        required: true,
+        required: [true, 'İsim alanı zorunludur!'],
         trim: true
     },
-    surname: {
+    lastName: {
         type: String,
-        required: true,
+        required: [true, 'Soyisim alanı zorunludur!'],
         trim: true
+    },
+    email: {
+        type: String,
+        required: [true, 'Email alanı zorunludur!'],
+        unique: true,
+        trim: true,
+        lowercase: true
     },
     password: {
         type: String,
-        required: true
+        required: [true, 'Şifre alanı zorunludur!'],
+        minlength: [6, 'Şifre en az 6 karakter olmalıdır!'],
+        select: false
     },
     role: {
         type: String,
         enum: ['SUPER_ADMIN', 'ADMIN', 'USER'],
         default: 'USER'
     },
-    createdAt: {
-        type: Date,
-        default: Date.now
+    isActive: {
+        type: Boolean,
+        default: true
     }
+}, {
+    timestamps: true
 });
 
 // Şifre hashleme middleware
@@ -45,4 +57,25 @@ userSchema.methods.comparePassword = async function(candidatePassword) {
     return bcrypt.compare(candidatePassword, this.password);
 };
 
-export const User = mongoose.model('User', userSchema); 
+// Kullanıcı listesi için özel metod
+userSchema.methods.toJSON = function() {
+    const obj = this.toObject();
+    delete obj.password;
+    return obj;
+};
+
+// Email değişikliğini kontrol et
+userSchema.pre('save', async function(next) {
+    if (this.isModified('email')) {
+        const existingUser = await this.constructor.findOne({ email: this.email });
+        if (existingUser && existingUser._id.toString() !== this._id.toString()) {
+            throw createError('Bu email adresi ile kayıtlı bir kullanıcı var!', ErrorTypes.VALIDATION, 400);
+        }
+    }
+    next();
+});
+
+// Model oluştur
+const User = mongoose.model('User', userSchema);
+
+export { User }; 

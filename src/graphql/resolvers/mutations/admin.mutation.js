@@ -12,19 +12,19 @@ export const adminMutations = {
         return authController.adminLogin(_, args, context);
     },
 
-    createAdmin: async (_, { name, surname, password }, context) => {
+    createAdmin: async (_, { name, surname, email, password }, context) => {
         try {
             // Kullanıcı verilerini doğrula
-            const validatedData = validateUser({ name, surname, password });
+            const validatedData = validateUser({ name, surname, email, password });
             
-            // Kullanıcı adı ve soyadı ile kullanıcı var mı kontrol et
-            const existingUser = await userService.findByNameAndSurname(validatedData.name, validatedData.surname);
+            // Email ile kullanıcı var mı kontrol et
+            const existingUser = await userService.findByEmail(validatedData.email);
             if (existingUser) {
-                throw createError('Bu isim ve soyisimle kayıtlı bir kullanıcı var!', ErrorTypes.VALIDATION, 400);
+                throw createError('Bu email adresi ile kayıtlı bir kullanıcı var!', ErrorTypes.VALIDATION, 400);
             }
 
             // Admin kullanıcısı oluştur
-            return await userService.createAdmin(validatedData.name, validatedData.surname, validatedData.password);
+            return await userService.createAdmin(validatedData.name, validatedData.surname, validatedData.email, validatedData.password);
         } catch (error) {
             throw createError('Admin kullanıcısı oluşturulamadı!', ErrorTypes.DATABASE, 500);
         }
